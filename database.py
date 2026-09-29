@@ -24,12 +24,25 @@ def initialize_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS profiles (
             user_id INTEGER PRIMARY KEY,
+            full_name TEXT DEFAULT '',
+            age INTEGER DEFAULT NULL,
+            course TEXT DEFAULT '',
             education TEXT,
             experience TEXT,
             interests TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id)
         )
     ''')
+    
+    # Auto-migrate existing profiles table if columns are missing
+    cursor.execute("PRAGMA table_info(profiles)")
+    existing_cols = [row[1] for row in cursor.fetchall()]
+    if "full_name" not in existing_cols:
+        cursor.execute("ALTER TABLE profiles ADD COLUMN full_name TEXT DEFAULT ''")
+    if "age" not in existing_cols:
+        cursor.execute("ALTER TABLE profiles ADD COLUMN age INTEGER DEFAULT NULL")
+    if "course" not in existing_cols:
+        cursor.execute("ALTER TABLE profiles ADD COLUMN course TEXT DEFAULT ''")
 
     # Skills table
     cursor.execute('''
@@ -124,24 +137,34 @@ def verify_user(username, password):
 def get_profile(user_id):
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT education, experience, interests FROM profiles WHERE user_id = ?", (user_id,))
+    cursor.execute("SELECT education, experience, interests, full_name, age, course FROM profiles WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
     if row:
-        return {"education": row[0], "experience": row[1], "interests": row[2]}
-    return {"education": "", "experience": "", "interests": ""}
+        return {
+            "education": row[0] or "",
+            "experience": row[1] or "",
+            "interests": row[2] or "",
+            "full_name": row[3] or "",
+            "age": row[4] if row[4] is not None else "",
+            "course": row[5] or ""
+        }
+    return {"education": "", "experience": "", "interests": "", "full_name": "", "age": "", "course": ""}
 
-def save_profile(user_id, education, experience, interests):
+def save_profile(user_id, education, experience, interests, full_name="", age=None, course=""):
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute('''
-        INSERT INTO profiles (user_id, education, experience, interests)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO profiles (user_id, education, experience, interests, full_name, age, course)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id) DO UPDATE SET
             education=excluded.education,
             experience=excluded.experience,
-            interests=excluded.interests
-    ''', (user_id, education, experience, interests))
+            interests=excluded.interests,
+            full_name=excluded.full_name,
+            age=excluded.age,
+            course=excluded.course
+    ''', (user_id, education, experience, interests, full_name, age, course))
     conn.commit()
     conn.close()
 

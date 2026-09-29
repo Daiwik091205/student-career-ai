@@ -46,16 +46,26 @@ def auth_page():
 
 def render_profile(user_id):
     st.header("My Profile")
+    st.write("Fill in your personal and educational details to receive personalized career paths and recommendations.")
     profile = db.get_profile(user_id)
     
     with st.form("profile_form"):
-        education = st.text_area("Education", value=profile.get("education", ""), placeholder="e.g., B.S. Computer Science, University of X")
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            full_name = st.text_input("Name", value=profile.get("full_name", ""), placeholder="e.g., John Doe")
+        with col2:
+            current_age = profile.get("age", "")
+            age_val = int(current_age) if current_age and str(current_age).isdigit() else 20
+            age = st.number_input("Age", min_value=14, max_value=100, value=age_val, step=1)
+            
+        course = st.text_input("Course", value=profile.get("course", ""), placeholder="e.g., B.Tech Computer Science, BCA, Data Science Bootcamp")
+        education = st.text_area("Education", value=profile.get("education", ""), placeholder="e.g., University of X, 3rd Year")
         experience = st.text_area("Experience", value=profile.get("experience", ""), placeholder="e.g., Software Engineering Intern at Company Y")
         interests = st.text_input("Interests", value=profile.get("interests", ""), placeholder="e.g., Machine Learning, Web Development")
         
-        if st.form_submit_button("Save Profile"):
-            db.save_profile(user_id, education, experience, interests)
-            st.success("Profile saved!")
+        if st.form_submit_button("Save Profile", type="primary"):
+            db.save_profile(user_id, education, experience, interests, full_name, age, course)
+            st.success("Profile saved successfully!")
 
 def render_skills_and_projects(user_id):
     st.header("Skills & Projects")
@@ -145,7 +155,9 @@ def render_roadmap(user_id):
                 skills = db.get_skills(user_id)
                 current_skills_str = ", ".join([s['skill_name'] for s in skills])
                 
-                gap_result = llm.perform_gap_analysis(current_skills_str, career['required_skills'], career['career_name'], st.session_state.get('username', 'the user'))
+                profile = db.get_profile(user_id)
+                display_name = profile.get('full_name') or st.session_state.get('username', 'the user')
+                gap_result = llm.perform_gap_analysis(current_skills_str, career['required_skills'], career['career_name'], display_name)
                 gap_analysis = gap_result.get('gap_analysis', '')
                 readiness = gap_result.get('readiness_score', 0)
                 
@@ -183,6 +195,12 @@ def render_resume_and_jobs(user_id):
     projects = db.get_projects(user_id)
     
     with st.expander("ℹ️ Profile Data Combined with Resume", expanded=False):
+        if profile.get('full_name'):
+            st.write(f"**Name:** {profile.get('full_name')}")
+        if profile.get('age'):
+            st.write(f"**Age:** {profile.get('age')}")
+        if profile.get('course'):
+            st.write(f"**Course:** {profile.get('course')}")
         st.write(f"**Education:** {profile.get('education') or 'Not set'}")
         st.write(f"**Experience:** {profile.get('experience') or 'Not set'}")
         st.write(f"**Interests:** {profile.get('interests') or 'Not set'}")
@@ -215,9 +233,9 @@ def render_resume_and_jobs(user_id):
     
     if st.button("Analyze Resume & Generate Job Recommendations", type="primary", disabled=not can_analyze):
         with st.spinner("Analyzing resume and profile for tailored job matches and gaps (rate limited to 5 requests/min)..."):
-            username = st.session_state.get('username', 'the user')
+            display_name = profile.get('full_name') or st.session_state.get('username', 'the user')
             result = llm.analyze_resume_and_recommend_jobs(
-                username=username,
+                username=display_name,
                 profile_data=profile,
                 skills_list=skills,
                 projects_list=projects,

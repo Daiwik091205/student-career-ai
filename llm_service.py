@@ -168,6 +168,8 @@ def analyze_resume_and_recommend_jobs(username, profile_data, skills_list, proje
     education = profile_data.get("education", "Not specified")
     experience = profile_data.get("experience", "Not specified")
     interests = profile_data.get("interests", "Not specified")
+    age = profile_data.get("age", "")
+    course = profile_data.get("course", "")
     
     if skills_list:
         skills_str = ", ".join([f"{s['skill_name']} ({s['proficiency']})" for s in skills_list])
@@ -188,6 +190,8 @@ def analyze_resume_and_recommend_jobs(username, profile_data, skills_list, proje
     
     User: {username}
     Profile Information:
+    - Course / Field of Study: {course or 'Not specified'}
+    - Age: {age or 'Not specified'}
     - Education: {education}
     - Experience: {experience}
     - Interests: {interests}
